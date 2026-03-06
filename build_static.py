@@ -2,7 +2,7 @@
 """
 build_static.py
 Generates a fully self-contained static site (index.html) for GitHub Pages.
-The static site uses ip-api.com directly from the browser (no Python backend needed).
+The static site uses ipinfo.io directly from the browser (no Python backend needed).
 """
 
 import os
@@ -344,7 +344,7 @@ HTML = """<!DOCTYPE html>
     <div id="result"></div>
 
     <footer>
-      powered by <a href="https://ip-api.com" target="_blank">ip-api.com</a> &nbsp;·&nbsp;
+      powered by <a href="https://ipinfo.io" target="_blank">ipinfo.io</a> &nbsp;·&nbsp;
       built with Python + GitHub Actions
     </footer>
   </div>
@@ -400,12 +400,12 @@ HTML = """<!DOCTYPE html>
 
       try {
         const target = ip || '';
-        const url = `https://ip-api.com/json/${target}?fields=status,message,country,countryCode,regionName,region,city,zip,lat,lon,timezone,isp,org,as,query`;
+        const url = `https://ipinfo.io/${target}/json`;
         const r = await fetch(url);
         const d = await r.json();
 
-        if (d.status === 'fail') {
-          showError(d.message || 'Lookup failed', ip);
+        if (d.error) {
+          showError(d.error.message || d.error || 'Lookup failed', ip);
         } else {
           showResult(d);
         }
@@ -418,17 +418,18 @@ HTML = """<!DOCTYPE html>
 
     // ── Render result ─────────────────────────────────────────────────────────
     function showResult(d) {
+      // ipinfo.io returns loc as "lat,lon" string
+      const [lat, lon] = d.loc ? d.loc.split(',').map(Number) : [null, null];
       const fields = [
-        { label: 'Country',   value: d.country,     },
-        { label: 'Region',    value: d.regionName,  },
-        { label: 'City',      value: d.city,        },
-        { label: 'ZIP Code',  value: d.zip || '—',  },
-        { label: 'Timezone',  value: d.timezone,    mono: true },
-        { label: 'Latitude',  value: d.lat,         mono: true },
-        { label: 'Longitude', value: d.lon,         mono: true },
-        { label: 'ISP',       value: d.isp,         },
-        { label: 'Org',       value: d.org,         },
-        { label: 'AS',        value: d.as,          mono: true },
+        { label: 'Country',   value: d.country,           },
+        { label: 'Region',    value: d.region,            },
+        { label: 'City',      value: d.city,              },
+        { label: 'ZIP Code',  value: d.postal || '—',     },
+        { label: 'Timezone',  value: d.timezone,          mono: true },
+        { label: 'Latitude',  value: lat,                 mono: true },
+        { label: 'Longitude', value: lon,                 mono: true },
+        { label: 'Hostname',  value: d.hostname || '—',   mono: true },
+        { label: 'Org / AS',  value: d.org,               },
       ];
 
       const fieldsHTML = fields.map(f => `
@@ -437,21 +438,21 @@ HTML = """<!DOCTYPE html>
           <div class="field-value ${f.mono ? 'mono' : ''}">${f.value || '—'}</div>
         </div>`).join('');
 
-      const mapSrc = `https://www.openstreetmap.org/export/embed.html?bbox=${d.lon-1},${d.lat-1},${d.lon+1},${d.lat+1}&layer=mapnik&marker=${d.lat},${d.lon}`;
+      const mapSrc = lat && lon ? `https://www.openstreetmap.org/export/embed.html?bbox=${lon-1},${lat-1},${lon+1},${lat+1}&layer=mapnik&marker=${lat},${lon}` : '';
 
       resultEl.classList.remove('visible');
       resultEl.innerHTML = `
         <div class="card">
           <div class="card-header">
             <div>
-              <div class="ip-badge">${d.query}</div>
-              <div class="location-line">${[d.city, d.regionName, d.country].filter(Boolean).join(', ')}</div>
+              <div class="ip-badge">${d.ip}</div>
+              <div class="location-line">${[d.city, d.region, d.country].filter(Boolean).join(', ')}</div>
             </div>
-            <div class="flag">${flagEmoji(d.countryCode)}</div>
+            <div class="flag">${flagEmoji(d.country)}</div>
           </div>
           <div class="fields">${fieldsHTML}</div>
           <div id="map-wrap">
-            <iframe src="${mapSrc}" loading="lazy"></iframe>
+            ${mapSrc ? `<iframe src="${mapSrc}" loading="lazy"></iframe>` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-family:monospace;font-size:.8rem">no coordinates available</div>'}
           </div>
         </div>`;
 
