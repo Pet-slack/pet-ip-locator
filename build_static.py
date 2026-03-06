@@ -345,7 +345,7 @@ HTML = """<!DOCTYPE html>
 
     <footer>
       powered by <a href="https://ipinfo.io" target="_blank">ipinfo.io</a> &nbsp;·&nbsp;
-      built with Python + GitHub Actions
+      built with Python - by P3tsl4ck
     </footer>
   </div>
 
