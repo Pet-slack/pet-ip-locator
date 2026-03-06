@@ -1,5 +1,7 @@
 # 🌐 IP Locator
 
+[![Build & Deploy to GitHub Pages](https://github.com/Pet-slack/pet-ip-locator/actions/workflows/deploy.yml/badge.svg)](https://github.com/Pet-slack/pet-ip-locator/actions/workflows/deploy.yml)
+
 A Python-powered IP geolocation tool with a dark-mode UI — deployable to **GitHub Pages** in seconds using GitHub Actions.
 
 ![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
