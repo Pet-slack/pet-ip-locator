@@ -1,42 +1,63 @@
 from flask import Flask, render_template, jsonify, request
 import requests
-import json
+import os
 
 app = Flask(__name__)
 
+# Optional: set IPINFO_TOKEN env var for higher rate limits (50k/mo free without token)
+IPINFO_TOKEN = os.environ.get("IPINFO_TOKEN", "")
+
+
 def get_ip_info(ip: str) -> dict:
-    """Fetch geolocation data for a given IP address."""
+    """Fetch geolocation data for a given IP address using ipinfo.io."""
     try:
-        # Using ip-api.com free tier (no API key needed)
-        response = requests.get(
-            f"http://ip-api.com/json/{ip}?fields=status,message,country,countryCode,"
-            f"region,regionName,city,zip,lat,lon,timezone,isp,org,as,query",
-            timeout=5
-        )
+        url = f"https://ipinfo.io/{ip}/json"
+        headers = {"Accept": "application/json"}
+        if IPINFO_TOKEN:
+            headers["Authorization"] = f"Bearer {IPINFO_TOKEN}"
+
+        response = requests.get(url, headers=headers, timeout=5)
+        response.raise_for_status()
         data = response.json()
 
-        if data.get("status") == "fail":
-            return {"error": data.get("message", "Lookup failed"), "ip": ip}
+        # ipinfo.io returns {"error": {"title": ..., "message": ...}} for invalid IPs
+        if "error" in data:
+            err = data["error"]
+            return {"error": err.get("message", "Lookup failed"), "ip": ip}
+
+        # ipinfo.io returns "loc" as "lat,lon" string
+        lat, lon = None, None
+        if loc := data.get("loc"):
+            parts = loc.split(",")
+            if len(parts) == 2:
+                lat, lon = float(parts[0]), float(parts[1])
+
+        # ipinfo.io returns "country" as a 2-letter code (e.g. "US")
+        # and does not include the full country name on the free tier
+        country_code = data.get("country", "")
 
         return {
-            "ip": data.get("query"),
-            "country": data.get("country"),
-            "country_code": data.get("countryCode"),
-            "region": data.get("regionName"),
-            "region_code": data.get("region"),
+            "ip": data.get("ip", ip),
+            "country": data.get("country_name") or country_code,
+            "country_code": country_code,
+            "region": data.get("region"),
+            "region_code": None,          # not provided by ipinfo.io free tier
             "city": data.get("city"),
-            "zip": data.get("zip"),
-            "lat": data.get("lat"),
-            "lon": data.get("lon"),
+            "zip": data.get("postal"),
+            "lat": lat,
+            "lon": lon,
             "timezone": data.get("timezone"),
-            "isp": data.get("isp"),
-            "org": data.get("org"),
-            "as": data.get("as"),
+            "isp": None,                  # available on paid plans only
+            "org": data.get("org"),       # e.g. "AS15169 Google LLC"
+            "as": data.get("org"),
+            "hostname": data.get("hostname"),
         }
     except requests.exceptions.Timeout:
         return {"error": "Request timed out", "ip": ip}
     except requests.exceptions.ConnectionError:
         return {"error": "Connection error", "ip": ip}
+    except requests.exceptions.HTTPError as e:
+        return {"error": f"HTTP {e.response.status_code}", "ip": ip}
     except Exception as e:
         return {"error": str(e), "ip": ip}
 
@@ -72,3 +93,4 @@ def my_ip():
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
+
