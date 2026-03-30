@@ -118,7 +118,7 @@ jobs:
         id: get_tag
         run: |
           git fetch --tags
-          TAG=$(git tag --short=v:refname | head -n 1)
+          TAG=$(git tag --sort=v:refname | head -n 1)
           if [ -z "$TAG" ]; then
             TAG="v0.0.0"
           fi
