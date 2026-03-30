@@ -93,7 +93,7 @@ jobs:
         uses: actions/deploy-pages@v4
 
   # ─────────────────────────────────────────────────────────────
-  # JOB 4 – Tag + Release (Semantic Versioning)
+  # JOB 4 – Tag + Release
   # ─────────────────────────────────────────────────────────────
   tag_release:
     name: Tag & Create Release
